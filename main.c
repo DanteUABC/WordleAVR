@@ -15,7 +15,7 @@
 #include "uart.h"
 #include "light_ws2812.h"
 
-#define EEPROM_START_ADDR (void*)0x10 // Evitamos la dirección 0x00 por seguridad en AVR
+#define EEPROM_START_ADDR (void*)0x10
 
 typedef struct {
 	char nombre[4];
@@ -24,7 +24,6 @@ typedef struct {
 } RegistroJugador;
 
 struct cRGB leds[5];
-// --- BANCO DE PALABRAS ---
 const char banco_palabras[][6] PROGMEM = {
 	"MICRO", "PUNTO", "RELOJ", "CABLE", "PLACA",
 	"DATOS", "FUEGO", "ARBOL", "PERRO", "GATOS",
@@ -83,8 +82,7 @@ const char banco_palabras[][6] PROGMEM = {
 };
 #define TOTAL_PALABRAS (sizeof(banco_palabras) / sizeof(banco_palabras[0]))
 
-char palabra_secreta[6]; // Ahora es una variable normal, no constante
-// -------------------------
+char palabra_secreta[6];
 
 volatile uint8_t segundos = 0;
 volatile uint8_t minutos = 0;
@@ -95,10 +93,9 @@ typedef enum {
 	ESTADO_MENU,
 	ESTADO_JUGANDO,
 	ESTADO_GAME_OVER,
-	ESTADO_INGRESO_NOMBRE // Nuevo estado para ingresar el nombre
+	ESTADO_INGRESO_NOMBRE
 } EstadoJuego;
 
-// --- CONFIGURACIÓN DE TIMERS ---
 void timer0_init_millis() {
 	TCCR0A |= (1 << WGM01);
 	TCCR0B |= (1 << CS01) | (1 << CS00);
@@ -126,7 +123,6 @@ ISR(TIMER1_COMPA_vect) {
 	actualizar_lcd = 1;
 }
 
-// --- CONFIGURACIÓN DEL TECLADO ---
 const char mapa_teclado[4][4] = {
 	{'1', '2', '3', 'A'},
 	{'4', '5', '6', 'B'},
@@ -182,9 +178,6 @@ char leer_teclado_raw() {
 	return 0;
 }
 
-// --- FUNCIONES DE JUEGO Y EEPROM ---
-
-// Definimos un brillo seguro para no sobrecargar el USB del Arduino (0-255)
 #define BRILLO 40
 
 void apagar_leds() {
@@ -280,7 +273,6 @@ void mostrar_ranking_uart() {
 	uart0_puts("----------------------\r\n");
 }
 
-// --- FUNCIÓN PRINCIPAL ---
 int main(void) {
 	uart0_init(UART_BAUD_SELECT(9600, F_CPU));
 	lcd_init();
@@ -321,7 +313,6 @@ int main(void) {
 				bandera_menu = 0;
 			}
 
-			// --- LEER OPCIÓN DESDE UART O TECLADO MATRICIAL ---
 			char tecla_menu = leer_teclado_raw();
 			uint16_t c = uart0_getc();
 			char opcion = 0;
@@ -331,7 +322,6 @@ int main(void) {
 				} else if ((c & UART_NO_DATA) == 0) {
 				opcion = (char)c;
 			}
-			// ---------------------------------------------------
 			
 			if (opcion == '1') {
 				srand(milisegundos);
@@ -348,7 +338,7 @@ int main(void) {
 				lcd_gotoxy(1, 0);
 				lcd_string_signed("Intento: 1");
 				
-				uart0_puts("\r\n--- ¡Juego Iniciado! ---\r\n");
+				uart0_puts("\r\n--- Â¡Juego Iniciado! ---\r\n");
 				uart0_puts("Introduce letras desde el teclado:\r\n");
 
 				estado = ESTADO_JUGANDO;
@@ -419,12 +409,11 @@ int main(void) {
 							uint8_t es_correcta = evaluar_intento(intento_actual);
 							
 							if (es_correcta) {
-								uart0_puts("¡FELICIDADES! Ganaste.\r\n");
+								uart0_puts("Â¡FELICIDADES! Ganaste.\r\n");
 								estado = ESTADO_GAME_OVER;
 								} else {
 								num_intento++;
 								if (num_intento > 5) {
-									// --- AJUSTE: DERROTA Y MOSTRAR PALABRA ---
 									uart0_puts("GAME OVER. La palabra era: ");
 									uart0_puts(palabra_secreta);
 									uart0_puts("\r\n");
@@ -434,12 +423,11 @@ int main(void) {
 									lcd_gotoxy(1, 0);
 									lcd_string_signed(palabra_secreta);
 									
-									_delay_ms(3000); // Mostrar la palabra 3 segundos
+									_delay_ms(3000);
 									
 									estado = ESTADO_MENU;
 									bandera_menu = 1;
 									apagar_leds();
-									// -----------------------------------------
 									} else {
 									indice_letra = 0;
 									intento_actual[0] = '\0';
@@ -466,21 +454,19 @@ int main(void) {
 			case ESTADO_GAME_OVER:
 			lcd_clear();
 			lcd_string_signed("!GANASTE!");
-			lcd_gotoxy(1, 0); // Ajustado para escribir en la 2da línea correctamente
+			lcd_gotoxy(1, 0);
 			sprintf(buffer_lcd, "Tiempo %02d:%02d", minutos, segundos);
 			lcd_string_signed(buffer_lcd);
 			
-			uart0_puts("\r\n¡Felicidades!\r\n");
+			uart0_puts("\r\nÂ¡Felicidades!\r\n");
 			
-			_delay_ms(3000); // Muestra el tiempo ganador por 3 segundos
+			_delay_ms(3000);
 			
-			// Preparamos la pantalla para ingresar el nombre
 			lcd_clear();
 			lcd_gotoxy(0, 0);
 			lcd_string_signed("Nombre:");
 			lcd_gotoxy(1, 0);
 			
-			// Reiniciamos variables de teclado para usarlas en el nombre
 			indice_letra = 0;
 			intento_actual[0] = '\0';
 			ultima_tecla = 0;
@@ -499,7 +485,7 @@ int main(void) {
 							indice_tap++;
 						}
 						else {
-							if (ultima_tecla != 0 && indice_letra < 3) { // Máximo 3 letras para el nombre
+							if (ultima_tecla != 0 && indice_letra < 3) {
 								indice_letra++;
 							}
 							if (indice_letra < 3) {
@@ -517,7 +503,7 @@ int main(void) {
 							intento_actual[indice_letra] = mapa_t9[array_index][indice_tap];
 							intento_actual[indice_letra + 1] = '\0';
 							
-							lcd_gotoxy(1, 0); // Escribe en la segunda fila
+							lcd_gotoxy(1, 0);
 							lcd_string_signed(intento_actual);
 						}
 					}
@@ -532,7 +518,7 @@ int main(void) {
 						}
 						lcd_gotoxy(1, 0);
 						lcd_string_signed(intento_actual);
-						lcd_char(' '); // Borrar rastro
+						lcd_char(' ');
 					}
 					else if (tecla == '#') {
 						if (ultima_tecla != 0 && indice_letra < 3) {
@@ -540,7 +526,7 @@ int main(void) {
 							ultima_tecla = 0;
 						}
 						
-						if (indice_letra == 3) { // Nombre completo (3 letras)
+						if (indice_letra == 3) {
 							RegistroJugador nuevo_record;
 							nuevo_record.minutos = minutos;
 							nuevo_record.segundos = segundos;
